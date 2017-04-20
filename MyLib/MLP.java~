@@ -1,0 +1,563 @@
+// Software: Multi-Layer Perceptron Library in Java
+// Author: Hy Truong Son
+// Major: BSc. Computer Science
+// Class: 2013 - 2016
+// Institution: Eotvos Lorand University
+// Email: sonpascal93@gmail.com
+// Website: http://people.inf.elte.hu/hytruongson/
+// Final update: February 6th, 2015
+// Copyright 2015 (c) Hy Truong Son. All rights reserved. Only use for academic purposes.
+
+package MyLib;
+
+import java.io.*;
+import java.util.Random;
+
+public class MLP {
+	
+	// +-----------+
+	// | Constants |
+	// +-----------+
+	
+	private double Epochs       = 1000;     // Default number of iterations
+	private double LearningRate = 1e-3;     // Default learning rate (good only for stochastic learning process)
+	private double Momentum     = 0.9;      // Default momentum for stochastic learning process
+	private double Lambda       = 0.0;      // Default regularization parameter for batch learning process, no regularization 
+	private double Epsilon      = 1e-3;     // Default epsilon for stopping stochastic learning process
+	
+	// +----------------------+
+	// | Variables Definition |
+	// +----------------------+
+	
+	private int nLayers;
+	class aLayer {
+		int n;
+		double out[], theta[];
+		double delta[][], weight[][];
+	};
+	aLayer Layer[];
+	
+	private double Expected[];
+	
+	private Random generator = new Random();
+	
+	private BufferedInputStream FileInput;
+	
+	private int randomInt(int number){
+		return generator.nextInt(number);
+	}
+	
+	// +-------------------+
+	// | Memory allocation |
+	// +-------------------+
+	
+	private void initMemory(int nLayers){
+		this.nLayers = nLayers;
+		Layer = new aLayer[this.nLayers];
+		for (int i = 0; i < this.nLayers; i++)
+			Layer[i] = new aLayer();
+	}
+	
+	// +----------------------------------+
+	// | Randomize weights for each layer |
+	// +----------------------------------+
+	
+	private void initCoefficient(){
+		Expected = new double [Layer[nLayers - 1].n];
+		
+		for (int i = 0; i < nLayers; i++){
+			if (i != 0)
+				Layer[i].theta = new double [Layer[i].n];
+		
+			Layer[i].out = new double [Layer[i].n];
+			
+			if (i != nLayers - 1){
+				Layer[i].weight = new double [Layer[i].n][Layer[i + 1].n];
+				Layer[i].delta = new double [Layer[i].n][Layer[i + 1].n];
+			}
+		}
+		
+		for (int i = 0; i < nLayers - 1; i++)
+			for (int j = 0; j < Layer[i].n; j++)
+				for (int v = 0; v < Layer[i + 1].n; v++){
+					Layer[i].weight[j][v] = (double)(randomInt(10)) / (10.0 * Layer[i + 1].n);
+					int t = randomInt(2);
+					if (t == 1) Layer[i].weight[j][v] = - Layer[i].weight[j][v];
+				}
+	}
+	
+	// +---------------------------------------------------------------------------------+
+    // | Constructor for the case 2 layers (no hidden layer): Input Layer - Output Layer |
+	// +---------------------------------------------------------------------------------+
+	
+	public MLP(int InputLayer, int OutputLayer){
+		initMemory(2);
+		
+		Layer[0].n = InputLayer;
+		Layer[1].n = OutputLayer;
+		
+		initCoefficient();
+	}
+	
+	// +-------------------------------------------------------------------------------------------------------------+
+	// | Constructor for the case 3 layers (1 hidden layer, most popular): Input Layer - Hidden Layer - Output Layer |
+	// +-------------------------------------------------------------------------------------------------------------+
+	
+	public MLP(int InputLayer, int HiddenLayer, int OutputLayer){
+		initMemory(3);
+		
+		Layer[0].n = InputLayer;
+		Layer[1].n = HiddenLayer;
+		Layer[2].n = OutputLayer;
+		
+		initCoefficient();
+	}
+	
+	// +-------------------------------------------------------------------------------------------------------------------+
+	// | Constructor for the case 4 layers (2 hidden layers): Input Layer - Hidden Layer 1 - Hidden Layer 2 - Output Layer |
+	// +-------------------------------------------------------------------------------------------------------------------+
+	
+	public MLP(int InputLayer, int HiddenLayer1, int HiddenLayer2, int OutputLayer){
+		initMemory(4);
+		
+		Layer[0].n = InputLayer;
+		Layer[1].n = HiddenLayer1;
+		Layer[2].n = HiddenLayer2;
+		Layer[3].n = OutputLayer;
+		
+		initCoefficient();
+	}
+	
+	// +-----------------------------------------------------+
+	// | Constructor for the case 5 layers (3 hidden layers) |
+	// +-----------------------------------------------------+
+	
+	public MLP(int InputLayer, int HiddenLayer1, int HiddenLayer2, int HiddenLayer3, int OutputLayer){
+		initMemory(5);
+		
+		Layer[0].n = InputLayer;
+		Layer[1].n = HiddenLayer1;
+		Layer[2].n = HiddenLayer2;
+		Layer[3].n = HiddenLayer3;
+		Layer[4].n = OutputLayer;
+		
+		initCoefficient();
+	}
+	
+	// +-----------------------------------------------------+
+	// | Constructor for the case 6 layers (4 hidden layers) |
+	// +-----------------------------------------------------+
+	
+	public MLP(int InputLayer, int HiddenLayer1, int HiddenLayer2, int HiddenLayer3, int HiddenLayer4, int OutputLayer){
+		initMemory(6);
+		
+		Layer[0].n = InputLayer;
+		Layer[1].n = HiddenLayer1;
+		Layer[2].n = HiddenLayer2;
+		Layer[3].n = HiddenLayer3;
+		Layer[4].n = HiddenLayer4;
+		Layer[5].n = OutputLayer;
+		
+		initCoefficient();
+	}
+	
+	// +--------------------------------+
+	// | Read a double from a text file |
+	// +--------------------------------+
+	
+	private double readDouble() throws IOException {
+		String str = "";
+		
+		while (true){
+			int aByte = FileInput.read();
+			char aChar = (char)(aByte);
+			if (aChar != ' '){
+				str += aChar;
+				break;
+			}
+		}
+		
+		while (true){
+			int aByte = FileInput.read();
+			if (aByte == -1) break;
+			char aChar = (char)(aByte);
+			if (aChar == ' ') break;
+			str += aChar;
+		}
+		
+		return Double.parseDouble(str);
+	}
+	
+	// +-------------------+
+	// | Parameter Setters |
+	// +-------------------+
+	
+	public void setWeights(String FileName) throws IOException {
+		FileInput = new BufferedInputStream (new FileInputStream(FileName));
+		
+		for (int i = 0; i < nLayers - 1; i++)
+			for (int j = 0; j < Layer[i].n; j++)
+				for (int v = 0; v < Layer[i + 1].n; v++)
+					Layer[i].weight[j][v] = readDouble();
+					
+		FileInput.close();
+	}
+	
+	public void setMomentum(double value){
+		Momentum = value;
+	}
+	
+	public void setEpochs(int value){
+		Epochs = value;
+	}
+	
+	public void setLearningRate(double value){
+		LearningRate = value;
+	}
+	
+	public void setRegularizationParameter(double value){
+	    Lambda = value;
+	}
+	
+	public void setEpsilon(double value){
+		Epsilon = value;
+	}
+	
+	public void setLayer(int layerIndex, double weight[][]){
+	    for (int i = 0; i < Layer[layerIndex].n; i++)
+		    for (int j = 0; j < Layer[layerIndex + 1].n; j++)
+		        Layer[layerIndex].weight[i][j] = weight[i][j];
+	}
+	
+	// +-------------------+
+	// | Parameter Getters |
+	// +-------------------+
+	
+	public double getMomentum(){
+		return Momentum;
+	}
+	
+	public double getEpochs(){
+		return Epochs;
+	}
+	
+	public double getLearningRate(){
+		return LearningRate;
+	}
+	
+	public double getRegularizationParameter(){
+	    return Lambda;
+	}
+	
+	public double getEpsilon(){
+		return Epsilon;
+	}
+	
+	public void getLayer(int layerIndex, double weight[][]){
+	    for (int i = 0; i < Layer[layerIndex].n; i++)
+		    for (int j = 0; j < Layer[layerIndex + 1].n; j++)
+		        weight[i][j] = Layer[layerIndex].weight[i][j];
+	}
+	
+	// +--------------------------------------------+
+	// | Write weights of all layers to a text file |
+	// +--------------------------------------------+
+	
+	public void writeWeights(String FileName) throws IOException {		
+		FileWriter FileOutput = new FileWriter(FileName);
+        PrintWriter Writer = new PrintWriter(FileOutput);
+		
+		for (int i = 0; i < nLayers - 1; i++)
+			for (int j = 0; j < Layer[i].n; j++)
+				for (int v = 0; v < Layer[i + 1].n; v++)
+					Writer.print(Layer[i].weight[j][v] + " ");
+			
+		Writer.close();
+	}
+	
+	// +-------------------------------+
+	// | Sigmoid - Activation Function |
+	// +-------------------------------+
+	
+	private double Sigmoid(double x){
+		return 1.0 / (1.0 + Math.exp(-x));
+	}
+
+    // +----------------------+
+    // | Feed-Forward Process |
+    // +----------------------+
+
+	private void Perceptron(){
+		for (int i = 1; i < nLayers; i++)
+			for (int j = 0; j < Layer[i].n; j++){
+				double net = 0.0;
+				for (int v = 0; v < Layer[i - 1].n; v++)
+					net += Layer[i - 1].out[v] * Layer[i - 1].weight[v][j];
+				Layer[i].out[j] = Sigmoid(net);
+			}	
+	}
+
+    // +---------------+
+    // | Norm L2 error |
+    // +---------------+
+
+	private double SquareError(){
+		double res = 0.0;
+		
+		for (int i = 0; i < Layer[nLayers - 1].n; i++){
+			double diff = Expected[i] - Layer[nLayers - 1].out[i];
+			res += 0.5 * diff * diff;
+		}
+		
+		return res;
+	}
+	
+	// +-----------------------+
+	// | Gradients Computation |
+	// +-----------------------+
+
+    private void initGradients(){
+        for (int i = 0; i < Layer[nLayers - 1].n; i++){
+			double out = Layer[nLayers - 1].out[i];
+			Layer[nLayers - 1].theta[i] = out * (1 - out) * (Expected[i] - out);
+		}
+	
+		for (int i = 1; i < nLayers - 1; i++)
+			for (int j = 0; j < Layer[i].n; j++){
+				double sum = 0.0;
+				for (int v = 0; v < Layer[i + 1].n; v++)
+					sum += Layer[i + 1].theta[v] * Layer[i].weight[j][v];
+				double out = Layer[i].out[j];
+				Layer[i].theta[j] = out * (1 - out) * sum;
+			}
+    }
+
+    // +-----------------------------+
+    // | Stochastic Back-Propagation |
+    // +-----------------------------+
+
+	private void StochasticBackPropagation(){		
+		initGradients();
+			
+		for (int i = 0; i < nLayers - 1; i++)
+			for (int j = 0; j < Layer[i].n; j++)
+				for (int v = 0; v < Layer[i + 1].n; v++){
+					double delta = Layer[i].delta[j][v];
+					double out = Layer[i].out[j];
+					double theta = Layer[i + 1].theta[v];
+					
+					Layer[i].delta[j][v] = LearningRate * theta * out + Momentum * delta;
+					Layer[i].weight[j][v] += Layer[i].delta[j][v];
+				}
+	}
+	
+	// +---------------------+
+	// | Stochastic Learning |
+	// +---------------------+
+
+	public double StochasticLearning(double Input[], double ExpectedOutput[]){
+		for (int i = 0; i < Layer[0].n; i++)
+			Layer[0].out[i] = Input[i];
+		
+		for (int i = 0; i < Layer[nLayers - 1].n; i++) 
+			Expected[i] = ExpectedOutput[i];
+		
+		for (int i = 0; i < nLayers - 1; i++)
+			for (int j = 0; j < Layer[i].n; j++)
+				for (int v = 0; v < Layer[i + 1].n; v++)
+					Layer[i].delta[j][v] = 0.0;
+
+		for (int iter = 0; iter < Epochs; iter++){
+			Perceptron();
+			StochasticBackPropagation();
+			
+			double error = SquareError();
+			if (error < Epsilon)
+			    return error;
+		}
+		
+		return SquareError();
+	}
+	
+	// +----------------------------------------------+
+	// | Stochastic learning with a new learning rate |
+	// +----------------------------------------------+
+	
+	public double StochasticLearning(double Input[], double ExpectedOutput[], double LearningRate){
+	    this.LearningRate = LearningRate;
+	    
+	    return StochasticLearning(Input, ExpectedOutput);
+	}
+	
+	// +------------------------+
+	// | Batch Back-Propagation |
+	// +------------------------+
+	
+	private void BatchBackPropagation(int nSamples){
+	    initGradients();
+			
+		for (int i = 0; i < nLayers - 1; i++)
+			for (int j = 0; j < Layer[i].n; j++)
+				for (int v = 0; v < Layer[i + 1].n; v++){
+					double out = Layer[i].out[j];
+					double theta = Layer[i + 1].theta[v];
+					
+					Layer[i].delta[j][v] += (LearningRate * theta * out) / nSamples;
+				}
+	}
+	
+	// +----------------+
+	// | Batch Learning |
+	// +----------------+
+	
+	public double BatchLearning(int nSamples, double Input[][], double ExpectedOutput[][], String WeightsFileName) throws IOException {
+	    for (int iter = 0; iter < Epochs; iter++){
+	        System.out.print("Iteration " + Integer.toString(iter) + ": ");
+	        
+	        for (int i = 0; i < nLayers - 1; i++)
+			    for (int j = 0; j < Layer[i].n; j++)
+				    for (int v = 0; v < Layer[i + 1].n; v++)
+				    	Layer[i].delta[j][v] = 0.0;
+	        
+	        double ReconstructionError = 0.0;
+	        
+	        for (int sample = 0; sample < nSamples; sample++){
+	            for (int i = 0; i < Layer[0].n; i++)
+			        Layer[0].out[i] = Input[sample][i];
+		
+		        for (int i = 0; i < Layer[nLayers - 1].n; i++) 
+			        Expected[i] = ExpectedOutput[sample][i];
+			        
+			    Perceptron();
+			    ReconstructionError += SquareError();
+			    
+			    BatchBackPropagation(nSamples);
+	        }
+	        
+	        for (int i = 0; i < nLayers - 1; i++)
+			    for (int j = 0; j < Layer[i].n; j++)
+				    for (int v = 0; v < Layer[i + 1].n; v++){
+					    double RegularizationTerm = LearningRate * Lambda * Layer[i].weight[j][v] / nSamples;
+					    
+					    Layer[i].weight[j][v] += Layer[i].delta[j][v] - RegularizationTerm;
+					}
+		    
+		    System.out.println("Saving weights to file");
+		    writeWeights(WeightsFileName);
+		    System.out.println("Reconstruction Error = " + Double.toString(ReconstructionError));
+	    }
+	    
+	    double ReconstructionError = computeReconstructionError(nSamples, Input, ExpectedOutput);
+	    System.out.println("Reconstruction Error = " + Double.toString(ReconstructionError));
+	    
+	    return ReconstructionError;
+	}
+	
+	// +----------------------------------------------------------------------------------------------------------+ 
+	// | Batch learning with new setups for learning rate, regularization parameter and file name to save weights |
+	// +----------------------------------------------------------------------------------------------------------+
+	
+	public double BatchLearning(int nSamples, double Input[][], double ExpectedOutput[][], double LearningRate, double Lambda, String WeightsFileName) throws IOException {
+	    this.LearningRate = LearningRate;
+	    this.Lambda = Lambda;
+	    
+	    return BatchLearning(nSamples, Input, ExpectedOutput, WeightsFileName);
+	}
+	
+	// +----------------------------------+
+	// | Reconstruction Error Computation |
+	// +----------------------------------+
+	
+	public double computeReconstructionError(int nSamples, double Input[][], double ExpectedOutput[][]){
+	    double ReconstructionError = 0.0;
+	        
+	    for (int sample = 0; sample < nSamples; sample++){
+	        for (int i = 0; i < Layer[0].n; i++)
+			    Layer[0].out[i] = Input[sample][i];
+			        
+			Perceptron();
+			
+			for (int i = 0; i < Layer[nLayers - 1].n; i++) 
+			    Expected[i] = ExpectedOutput[sample][i];
+			    
+			ReconstructionError += SquareError();
+	    }
+	    
+	    return ReconstructionError;
+	}
+	
+	// +--------------------------------+
+	// | Prediction for a single sample |
+	// +--------------------------------+
+	
+	public void Predict(double Input[], double PredictedOutput[]){		
+		for (int i = 0; i < Layer[0].n; i++)
+			Layer[0].out[i] = Input[i];
+		
+		Perceptron();
+		
+		for (int i = 0; i < Layer[nLayers - 1].n; i++) 
+			PredictedOutput[i] = Layer[nLayers - 1].out[i];
+	}
+	
+	// +-------------------------------------------------------------+
+	// | Prediction for a single sample and return the norm L2 error |
+	// +-------------------------------------------------------------+
+	
+	public double Predict(double Input[], double ExpectedOutput[], double PredictedOutput[]){
+	    for (int i = 0; i < Layer[0].n; i++)
+			Layer[0].out[i] = Input[i];
+		
+		Perceptron();
+		
+		for (int i = 0; i < Layer[nLayers - 1].n; i++) 
+			PredictedOutput[i] = Layer[nLayers - 1].out[i];
+			
+	    for (int i = 0; i < Layer[nLayers - 1].n; i++) 
+		    Expected[i] = ExpectedOutput[i];
+		    
+		return SquareError();
+	}
+	
+    // +-----------------------------------+
+	// | Prediction for the whole database |
+	// +-----------------------------------+
+	
+	public void Predict(int nSamples, double Input[][], double PredictedOutput[][]){
+	    for (int sample = 0; sample < nSamples; sample++){
+	        for (int i = 0; i < Layer[0].n; i++)
+			    Layer[0].out[i] = Input[sample][i];
+		
+		    Perceptron();
+		
+		    for (int i = 0; i < Layer[nLayers - 1].n; i++) 
+			    PredictedOutput[sample][i] = Layer[nLayers - 1].out[i];
+	    }
+	}
+	
+	// +----------------------------------------------------------------+
+	// | Prediction for the whole database and return the norm L2 error |
+	// +----------------------------------------------------------------+
+	
+	public double Predict(int nSamples, double Input[][], double ExpectedOutput[][], double PredictedOutput[][]){
+	    double ReconstructionError = 0.0;
+	    
+	    for (int sample = 0; sample < nSamples; sample++){
+	        for (int i = 0; i < Layer[0].n; i++)
+			    Layer[0].out[i] = Input[sample][i];
+		
+		    Perceptron();
+		
+		    for (int i = 0; i < Layer[nLayers - 1].n; i++) 
+			    PredictedOutput[sample][i] = Layer[nLayers - 1].out[i];
+			    
+			for (int i = 0; i < Layer[nLayers - 1].n; i++) 
+		        Expected[i] = ExpectedOutput[sample][i];
+		        
+		    ReconstructionError += SquareError();
+	    }
+	    
+	    return ReconstructionError;
+	}
+
+}

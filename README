@@ -1,0 +1,53 @@
+Project: Neural networks compression
+Author: Hy Truong Son
+Major: PhD Student
+Institution: Department of Computer Science, The University of Chicago
+Email: hytruongson@uchicago.edu
+
+
+Train a MLP
+-----------
+$ javac Train_NeuralNets.java
+$ java Train_NeuralNets
+
+
+Train a Softmax
+---------------
+$ javac Train_Softmax.java
+$ java Train_Softmax
+
+
+Train a Autoencoder
+-------------------
+$ g++ Train_Autoencoder.cpp -o Train_Autoencoder
+$ ./Train_Autoencoder
+
+
+Compress Neural Nets by low-rank approximation
+----------------------------------------------
+Run SVD_NeuralNets.m
+
+
+Compress Neural Nets by sparsification
+--------------------------------------
+Run Sparse_NeuralNets.m
+
+
+Compress Neural Nets by K-Means quantization
+--------------------------------------------
+Run KMeans_NeuralNets.m
+
+
+Compress Neural Nets by Fourier transformation
+----------------------------------------------
+Run Fourier_NeuralNets.m
+
+
+Compress Autoencoder by Singular Value Decomposition
+----------------------------------------------------
+Run SVD_Autoencoder.m
+
+
+Visualize Autoencoder
+---------------------
+Run visualize_autoencoder.m
