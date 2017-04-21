@@ -1,0 +1,10 @@
+\beamer@endinputifotherversion {3.24pt}
+\beamer@sectionintoc {1}{Neural Networks Architectures}{3}{0}{1}
+\beamer@sectionintoc {2}{Compression Methods}{4}{0}{2}
+\beamer@sectionintoc {3}{Visualization}{5}{0}{3}
+\beamer@sectionintoc {4}{Low-rank approximation}{7}{0}{4}
+\beamer@sectionintoc {5}{Sparsification}{10}{0}{5}
+\beamer@sectionintoc {6}{K-Means quantization}{13}{0}{6}
+\beamer@sectionintoc {7}{Fourier Transformation}{16}{0}{7}
+\beamer@sectionintoc {8}{Conclusions}{19}{0}{8}
+\beamer@sectionintoc {9}{How to compress Deep CNNs?}{20}{0}{9}

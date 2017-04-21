@@ -15,11 +15,11 @@ function [] = visualize_autoencoder()
     for i = 1 : nImages
         image = test_images(i, :);
         reconstructed_image = Autoencoder(W, image);
-        subplot(nImages, 2, 2 * i - 1);
+        subplot(2, nImages, i);
         imshow(uint8(reshape(image, 28, 28) * 255)');
-        title('Original image');
-        subplot(nImages, 2, 2 * i);
+        title('Original');
+        subplot(2, nImages, nImages + i);
         imshow(uint8(reshape(reconstructed_image, 28, 28) * 255)');
-        title('Reconstructed image');
+        title('Reconstruction');
     end
 end
